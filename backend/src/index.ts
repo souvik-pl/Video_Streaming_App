@@ -8,6 +8,7 @@ import fs from "fs";
 import fsPromises from "fs/promises";
 import { pipeline } from "stream/promises";
 import { exec } from "child_process";
+import { promisify } from "util";
 import {
   BUCKET_DIR_NAME,
   CHUNK_DIR_NAME,
@@ -150,39 +151,31 @@ async function assembleChunks(originalFilename: string, totalChunks: number) {
   }
 }
 
-function segmentFile(assembledFilename: string, fileTitle: string) {
+async function segmentFile(assembledFilename: string, fileTitle: string) {
   const fileId = uuidv4();
   const outputPath = `${SEGMENT_DIR_PATH}/${fileId}`;
   const hlsPath = `${outputPath}/${MANIFEST_FILE_NAME}`;
   const assembledFilePath = `${BUCKET_DIR_PATH}/${removeWhitespaces(assembledFilename)}`;
 
-  fs.mkdir(outputPath, { recursive: true }, (err) => {
-    if (err) {
-      console.error("Error creating directory: " + outputPath);
-    } else {
-      const ffmpegCommand = `ffmpeg -i ${assembledFilePath} -codec:v libx264 -codec:a aac -hls_time 10 -hls_playlist_type vod -hls_segment_filename "${outputPath}/segment%03d.ts" -start_number 0 ${hlsPath}`;
-
-      exec(ffmpegCommand, (error) => {
-        if (error) {
-          console.log(`ffmpeg exec error: ${error}`);
-        } else {
-          const file: VideoFile = {
-            id: fileId,
-            title: fileTitle,
-            url: `http://localhost:${PORT}/${ROUTES.bucket}/${SEGMENT_DIR_NAME}/${fileId}/${MANIFEST_FILE_NAME}`,
-          };
-
-          updateDB(file);
-
-          try {
-            fsPromises.unlink(assembledFilePath);
-          } catch (error) {
-            console.error("Error deleting file: ", error);
-          }
-        }
-      });
+  try {
+    await fsPromises.mkdir(outputPath, { recursive: true });
+    const ffmpegCommand = `ffmpeg -i ${assembledFilePath} -codec:v libx264 -codec:a aac -hls_time 10 -hls_playlist_type vod -hls_segment_filename "${outputPath}/segment%03d.ts" -start_number 0 ${hlsPath}`;
+    const execPromise = promisify(exec);
+    await execPromise(ffmpegCommand);
+    const file: VideoFile = {
+      id: fileId,
+      title: fileTitle,
+      url: `http://localhost:${PORT}/${ROUTES.bucket}/${SEGMENT_DIR_NAME}/${fileId}/${MANIFEST_FILE_NAME}`,
+    };
+    updateDB(file);
+    try {
+      fsPromises.unlink(assembledFilePath);
+    } catch (error) {
+      console.error("Error deleting file: ", error);
     }
-  });
+  } catch (error) {
+    console.log("Error in segmentaion", error);
+  }
 }
 
 async function updateDB(file: VideoFile) {

@@ -11,6 +11,7 @@ import { exec } from "child_process";
 import {
   BUCKET_DIR_NAME,
   CHUNK_DIR_NAME,
+  DB_PATH,
   FORM_FIELD_KEY,
   MANIFEST_FILE_NAME,
   PORT,
@@ -18,7 +19,7 @@ import {
   SEGMENT_DIR_NAME,
 } from "./common/constants.js";
 import { getChunkFilePath, removeWhitespaces } from "./common/utils.js";
-import { APIResponse, FileUploadResponse, VideoFile } from "./common/common.type.js";
+import { APIResponse, FileUploadResponse, VideoFile, VideoResponse } from "./common/common.type.js";
 
 // Use import.meta.url to get the directory name
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +27,7 @@ const __dirname = path.dirname(__filename);
 const BUCKET_DIR_PATH = path.join(__dirname, `../${BUCKET_DIR_NAME}`);
 const CHUNK_DIR_PATH = BUCKET_DIR_PATH + `/${CHUNK_DIR_NAME}`;
 const SEGMENT_DIR_PATH = BUCKET_DIR_PATH + `/${SEGMENT_DIR_NAME}`;
+const DB_FILE_PATH = path.join(__dirname, `../${DB_PATH}`);
 
 (async () => {
   try {
@@ -73,6 +75,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use(`/${ROUTES.bucket}`, express.static(BUCKET_DIR_PATH));
 
 // API endpoints
+app.get(`/${ROUTES.videos}`, async function (req: Request, res: Response) {
+  try {
+    const data = await fsPromises.readFile(DB_FILE_PATH, "utf-8");
+    const videoList: VideoFile[] = JSON.parse(data);
+    const videoResponse: VideoResponse = {
+      message: "Videos fetched successfully",
+      videoList: videoList,
+    };
+    res.status(200).json(videoResponse);
+  } catch (error) {
+    const errorResponse: APIResponse = {
+      message: "Internal server error",
+    };
+    res.status(500).json(errorResponse);
+  }
+});
+
 app.post(
   `/${ROUTES.upload}`,
   multerUpload.single(FORM_FIELD_KEY),
@@ -147,13 +166,13 @@ function segmentFile(assembledFilename: string, fileTitle: string) {
         if (error) {
           console.log(`ffmpeg exec error: ${error}`);
         } else {
-          const fileObject: VideoFile = {
+          const file: VideoFile = {
             id: fileId,
             title: fileTitle,
             url: `http://localhost:${PORT}/${ROUTES.bucket}/${SEGMENT_DIR_NAME}/${fileId}/${MANIFEST_FILE_NAME}`,
           };
 
-          console.log(fileObject);
+          updateDB(file);
 
           try {
             fsPromises.unlink(assembledFilePath);
@@ -164,4 +183,15 @@ function segmentFile(assembledFilename: string, fileTitle: string) {
       });
     }
   });
+}
+
+async function updateDB(file: VideoFile) {
+  try {
+    const data = await fsPromises.readFile(DB_FILE_PATH, "utf-8");
+    const videoList: VideoFile[] = JSON.parse(data);
+    videoList.push(file);
+    fsPromises.writeFile(DB_FILE_PATH, JSON.stringify(videoList), "utf-8");
+  } catch (error) {
+    console.log("Error updating DB");
+  }
 }

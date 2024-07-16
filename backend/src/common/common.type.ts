@@ -11,3 +11,7 @@ export type APIResponse = {
 export type FileUploadResponse = APIResponse & {
   isUploadComplete: boolean;
 };
+
+export type VideoResponse = APIResponse & {
+  videoList: VideoFile[];
+};

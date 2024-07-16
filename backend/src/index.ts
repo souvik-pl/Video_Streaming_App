@@ -5,8 +5,8 @@ import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import { pipeline } from "stream";
-import { promisify } from "util";
+import fsPromises from "fs/promises";
+import { pipeline } from "stream/promises";
 import { exec } from "child_process";
 import {
   BUCKET_DIR_NAME,
@@ -20,8 +20,6 @@ import {
 import { getChunkFilePath, removeWhitespaces } from "./common/utils.js";
 import { APIResponse, FileUploadResponse, VideoFile } from "./common/common.type.js";
 
-const pipelineAsync = promisify(pipeline);
-
 // Use import.meta.url to get the directory name
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,16 +27,15 @@ const BUCKET_DIR_PATH = path.join(__dirname, `../${BUCKET_DIR_NAME}`);
 const CHUNK_DIR_PATH = BUCKET_DIR_PATH + `/${CHUNK_DIR_NAME}`;
 const SEGMENT_DIR_PATH = BUCKET_DIR_PATH + `/${SEGMENT_DIR_NAME}`;
 
-fs.mkdir(BUCKET_DIR_PATH, { recursive: true }, (err) => {
-  if (err) {
-    console.error("Error creating directory: " + BUCKET_DIR_PATH);
+(async () => {
+  try {
+    await fsPromises.mkdir(BUCKET_DIR_PATH, { recursive: true });
+    await fsPromises.mkdir(CHUNK_DIR_PATH, { recursive: true });
+  } catch (error) {
+    console.error("Error creating bucket directory");
+    process.exit(1);
   }
-});
-fs.mkdir(CHUNK_DIR_PATH, { recursive: true }, (err) => {
-  if (err) {
-    console.error("Error creating directory: " + CHUNK_DIR_PATH);
-  }
-});
+})();
 
 const app = express();
 
@@ -79,34 +76,23 @@ app.use(`/${ROUTES.bucket}`, express.static(BUCKET_DIR_PATH));
 app.post(
   `/${ROUTES.upload}`,
   multerUpload.single(FORM_FIELD_KEY),
-  function (req: Request, res: Response) {
+  async function (req: Request, res: Response) {
     const file: Express.Multer.File = req.file;
     const fileTitle = req.body.title;
     const totalChunks: number = Number(req.body.totalChunks);
     const currentChunk: number = Number(req.body.currentChunk);
     const chunkFilePath: string = getChunkFilePath(CHUNK_DIR_PATH, file.originalname, currentChunk);
 
-    fs.rename(file.path, chunkFilePath, async (error) => {
-      const errorResponse: APIResponse = {
-        message: "Error uploading file",
-      };
-
-      if (error) {
-        res.status(500).json(errorResponse);
-      }
-
+    try {
+      await fsPromises.rename(file.path, chunkFilePath);
       if (currentChunk === totalChunks) {
-        try {
-          await assembleChunks(file.originalname, totalChunks);
-          segmentFile(file.originalname, fileTitle);
-          const uploadResponse: FileUploadResponse = {
-            isUploadComplete: true,
-            message: "Video uploaded successfully. It will be available shortly.",
-          };
-          res.status(200).json(uploadResponse);
-        } catch (err) {
-          res.status(500).json(errorResponse);
-        }
+        await assembleChunks(file.originalname, totalChunks);
+        segmentFile(file.originalname, fileTitle);
+        const uploadResponse: FileUploadResponse = {
+          isUploadComplete: true,
+          message: "Video uploaded successfully. It will be available shortly.",
+        };
+        res.status(200).json(uploadResponse);
       } else {
         const uploadResponse: FileUploadResponse = {
           isUploadComplete: false,
@@ -114,7 +100,12 @@ app.post(
         };
         res.status(200).json(uploadResponse);
       }
-    });
+    } catch (error) {
+      const errorResponse: APIResponse = {
+        message: "Error uploading file",
+      };
+      res.status(500).json(errorResponse);
+    }
   }
 );
 
@@ -128,14 +119,15 @@ async function assembleChunks(originalFilename: string, totalChunks: number) {
   for (let i = 1; i <= totalChunks; i++) {
     const chunkPath = getChunkFilePath(CHUNK_DIR_PATH, originalFilename, i);
     // Open a writable stream for each chunk and append data to the final file
-    const writer = fs.createWriteStream(finalFilePath, { flags: "a" });
-    await pipelineAsync(fs.createReadStream(chunkPath), writer);
-    fs.unlink(chunkPath, (err) => {
-      if (err) {
-        console.error("Error deleting chunk file:", err);
-      }
-    });
-    writer.end();
+    const writeStream = fs.createWriteStream(finalFilePath, { flags: "a" });
+    const readStream = fs.createReadStream(chunkPath);
+    await pipeline(readStream, writeStream);
+    try {
+      fsPromises.unlink(chunkPath);
+    } catch (error) {
+      console.error("Error deleting chunk file: ", error);
+    }
+    writeStream.end();
   }
 }
 
@@ -163,11 +155,11 @@ function segmentFile(assembledFilename: string, fileTitle: string) {
 
           console.log(fileObject);
 
-          fs.unlink(assembledFilePath, (err) => {
-            if (err) {
-              console.error("Error deleting chunk file:", err);
-            }
-          });
+          try {
+            fsPromises.unlink(assembledFilePath);
+          } catch (error) {
+            console.error("Error deleting file: ", error);
+          }
         }
       });
     }

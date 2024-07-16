@@ -66,11 +66,7 @@ const storage: StorageEngine = multer.diskStorage({
 
 const multerUpload = multer({ storage: storage });
 
-app.use(
-  cors({
-    origin: ["http://localhost:5174"],
-  })
-);
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(`/${ROUTES.bucket}`, express.static(BUCKET_DIR_PATH));

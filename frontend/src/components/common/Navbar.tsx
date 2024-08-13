@@ -6,8 +6,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
-import { ROUTES } from "@/common/common";
+} from "../ui/select";
+import { FE_ROUTES } from "@/common/common";
 
 function Navbar() {
   const navigate = useNavigate();
@@ -28,8 +28,8 @@ function Navbar() {
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectItem value={ROUTES.home}>Home</SelectItem>
-            <SelectItem value={ROUTES.studio}>Studio</SelectItem>
+            <SelectItem value={FE_ROUTES.home}>Home</SelectItem>
+            <SelectItem value={FE_ROUTES.studio}>Studio</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

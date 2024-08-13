@@ -1,9 +1,10 @@
-import Navbar from "./components/Navbar";
+import Navbar from "./components/common/Navbar";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import Home from "./pages/Home";
 import Studio from "./pages/Studio";
 import { useEffect } from "react";
-import { ROUTES } from "./common/common";
+import { FE_ROUTES } from "./common/common";
+import { Toaster } from "./components/ui/toaster";
 
 function App() {
   useEffect(() => {
@@ -18,11 +19,12 @@ function App() {
         </div>
         <div className="w-full flex-1 py-6">
           <Routes>
-            <Route path={ROUTES.home} element={<Home />} />
-            <Route path={ROUTES.studio} element={<Studio />} />
+            <Route path={FE_ROUTES.home} element={<Home />} />
+            <Route path={FE_ROUTES.studio} element={<Studio />} />
           </Routes>
         </div>
       </div>
+      <Toaster />
     </BrowserRouter>
   );
 }

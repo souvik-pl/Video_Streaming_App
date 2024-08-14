@@ -67,3 +67,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer utilities {
+  .scrollbar::-webkit-scrollbar {
+    width: 15px;
+  }
+
+  .scrollbar::-webkit-scrollbar-thumb {
+    background: #453936;
+    border-radius: 5px;
+  }
+
+  .scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #392f2d;
+  }
+}

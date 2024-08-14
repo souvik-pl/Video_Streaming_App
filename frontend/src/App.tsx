@@ -14,10 +14,10 @@ function App() {
   return (
     <BrowserRouter>
       <div className="w-full h-lvh bg-[#171312] flex flex-col px-64">
-        <div className="w-full h-16">
+        <div className="w-full h-[12%]">
           <Navbar />
         </div>
-        <div className="w-full flex-1 py-6">
+        <div className="w-full h-[88%] py-6">
           <Routes>
             <Route path={FE_ROUTES.home} element={<Home />} />
             <Route path={FE_ROUTES.studio} element={<Studio />} />

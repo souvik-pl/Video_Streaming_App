@@ -1,5 +1,27 @@
+import { VideoFile } from "@/common/common";
+import VideoList from "@/components/Home/VideoList";
+import VideoPlayer from "@/components/Home/VideoPlayer";
+import { useState } from "react";
+
 function Home() {
-  return <div>Home</div>;
+  const [isVideoPlayerOpen, setIsVideoPlayerOpen] = useState<boolean>(false);
+  const [selectedVideo, setSelectedVideo] = useState<VideoFile | null>(null);
+
+  function closeVideoPlayer() {
+    setSelectedVideo(null);
+    setIsVideoPlayerOpen(false);
+  }
+
+  function openVideoPlayer(video: VideoFile) {
+    setSelectedVideo(video);
+    setIsVideoPlayerOpen(true);
+  }
+
+  return isVideoPlayerOpen ? (
+    <VideoPlayer video={selectedVideo} closeVideoPlayer={closeVideoPlayer} />
+  ) : (
+    <VideoList openVideoPlayer={openVideoPlayer} />
+  );
 }
 
 export default Home;

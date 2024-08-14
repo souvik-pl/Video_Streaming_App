@@ -2,6 +2,7 @@ export type VideoFile = {
   id: string;
   title: string;
   url: string;
+  thumbail: string;
 };
 
 export type APIResponse = {

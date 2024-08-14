@@ -18,6 +18,7 @@ import {
   PORT,
   ROUTES,
   SEGMENT_DIR_NAME,
+  THUMBNAIL_DIR_NAME,
 } from "./common/constants.js";
 import { getChunkFilePath, removeWhitespaces } from "./common/utils.js";
 import { APIResponse, FileUploadResponse, VideoFile, VideoResponse } from "./common/common.type.js";
@@ -28,12 +29,14 @@ const __dirname = path.dirname(__filename);
 const BUCKET_DIR_PATH = path.join(__dirname, `../${BUCKET_DIR_NAME}`);
 const CHUNK_DIR_PATH = BUCKET_DIR_PATH + `/${CHUNK_DIR_NAME}`;
 const SEGMENT_DIR_PATH = BUCKET_DIR_PATH + `/${SEGMENT_DIR_NAME}`;
+const THUMBNAIL_DIR_PATH = BUCKET_DIR_PATH + `/${THUMBNAIL_DIR_NAME}`;
 const DB_FILE_PATH = path.join(__dirname, `../${DB_PATH}`);
 
 (async () => {
   try {
     await fsPromises.mkdir(BUCKET_DIR_PATH, { recursive: true });
     await fsPromises.mkdir(CHUNK_DIR_PATH, { recursive: true });
+    await fsPromises.mkdir(THUMBNAIL_DIR_PATH, { recursive: true });
   } catch (error) {
     console.error("Error creating bucket directory");
     process.exit(1);
@@ -103,7 +106,8 @@ app.post(
       await fsPromises.rename(file.path, chunkFilePath);
       if (currentChunk === totalChunks) {
         await assembleChunks(file.originalname, totalChunks);
-        segmentFile(file.originalname, fileTitle);
+        const thumbnailURL = await generateVideoThumbnail(file.originalname);
+        segmentFile(file.originalname, fileTitle, thumbnailURL);
         const uploadResponse: FileUploadResponse = {
           isUploadComplete: true,
           message: "Video uploaded successfully. It will be available shortly.",
@@ -147,7 +151,32 @@ async function assembleChunks(originalFilename: string, totalChunks: number) {
   }
 }
 
-async function segmentFile(assembledFilename: string, fileTitle: string) {
+async function generateVideoThumbnail(originalFilename: string): Promise<string> {
+  return new Promise(async (resolve, reject) => {
+    const assembledFilePath = `${BUCKET_DIR_PATH}/${removeWhitespaces(originalFilename)}`;
+    const thumbailPath = `${THUMBNAIL_DIR_PATH}/${removeWhitespaces(path.basename(originalFilename, path.extname(originalFilename)))}.png`;
+    const ffmpegCommand = `ffmpeg -i ${assembledFilePath} -ss 00:00:01.000 -vframes 1 ${thumbailPath}`;
+    const execPromise = promisify(exec);
+    await execPromise(ffmpegCommand);
+
+    try {
+      const imageBuffer = await fsPromises.readFile(thumbailPath);
+      const base64Image = imageBuffer.toString("base64");
+      const base64Url = `data:image/png;base64,${base64Image}`;
+      try {
+        fsPromises.unlink(thumbailPath);
+      } catch (error) {
+        console.error("Error deleting thumbnail file: ", error);
+      }
+      resolve(base64Url);
+    } catch (error) {
+      console.error("Error reading thumbnail file: ", error);
+      reject("Error reading thumbnail file");
+    }
+  });
+}
+
+async function segmentFile(assembledFilename: string, fileTitle: string, thumbnailURL: string) {
   const fileId = uuidv4();
   const outputPath = `${SEGMENT_DIR_PATH}/${fileId}`;
   const hlsPath = `${outputPath}/${MANIFEST_FILE_NAME}`;
@@ -162,12 +191,13 @@ async function segmentFile(assembledFilename: string, fileTitle: string) {
       id: fileId,
       title: fileTitle,
       url: `http://localhost:${PORT}/${ROUTES.bucket}/${SEGMENT_DIR_NAME}/${fileId}/${MANIFEST_FILE_NAME}`,
+      thumbail: thumbnailURL,
     };
     updateDB(file);
     try {
       fsPromises.unlink(assembledFilePath);
     } catch (error) {
-      console.error("Error deleting file: ", error);
+      console.error("Error deleting video file: ", error);
     }
   } catch (error) {
     console.log("Error in segmentaion", error);

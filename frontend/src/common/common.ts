@@ -9,3 +9,10 @@ export const BE_ROUTES = {
 };
 
 export const FORM_FIELD_KEY = "videofile";
+
+export type VideoFile = {
+  id: string;
+  title: string;
+  url: string;
+  thumbail: string;
+};

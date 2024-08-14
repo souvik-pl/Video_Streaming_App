@@ -1,6 +1,6 @@
 import { VideoFile } from "@/common/common";
 import VideoList from "@/components/Home/VideoList";
-import VideoPlayer from "@/components/Home/VideoPlayer";
+import VideoPlayerContainer from "@/components/Home/VideoPlayerContainer";
 import { useState } from "react";
 
 function Home() {
@@ -18,7 +18,7 @@ function Home() {
   }
 
   return isVideoPlayerOpen ? (
-    <VideoPlayer video={selectedVideo} closeVideoPlayer={closeVideoPlayer} />
+    <VideoPlayerContainer video={selectedVideo} closeVideoPlayer={closeVideoPlayer} />
   ) : (
     <VideoList openVideoPlayer={openVideoPlayer} />
   );

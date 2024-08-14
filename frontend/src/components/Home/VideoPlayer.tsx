@@ -50,7 +50,7 @@ function VideoPlayer(props: VideoPlayerProps) {
   }, [playerRef]);
 
   return (
-    <div data-vjs-player className="w-full h-full">
+    <div data-vjs-player style={{ width: "800px" }}>
       <div ref={videoRef} />
     </div>
   );

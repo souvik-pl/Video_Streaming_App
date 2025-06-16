@@ -154,17 +154,17 @@ async function assembleChunks(originalFilename: string, totalChunks: number) {
 async function generateVideoThumbnail(originalFilename: string): Promise<string> {
   return new Promise(async (resolve, reject) => {
     const assembledFilePath = `${BUCKET_DIR_PATH}/${removeWhitespaces(originalFilename)}`;
-    const thumbailPath = `${THUMBNAIL_DIR_PATH}/${removeWhitespaces(path.basename(originalFilename, path.extname(originalFilename)))}.png`;
-    const ffmpegCommand = `ffmpeg -i ${assembledFilePath} -ss 00:00:01.000 -vframes 1 ${thumbailPath}`;
+    const thumbnailPath = `${THUMBNAIL_DIR_PATH}/${removeWhitespaces(path.basename(originalFilename, path.extname(originalFilename)))}.png`;
+    const ffmpegCommand = `ffmpeg -i ${assembledFilePath} -ss 00:00:01.000 -vframes 1 ${thumbnailPath}`;
     const execPromise = promisify(exec);
     await execPromise(ffmpegCommand);
 
     try {
-      const imageBuffer = await fsPromises.readFile(thumbailPath);
+      const imageBuffer = await fsPromises.readFile(thumbnailPath);
       const base64Image = imageBuffer.toString("base64");
       const base64Url = `data:image/png;base64,${base64Image}`;
       try {
-        fsPromises.unlink(thumbailPath);
+        fsPromises.unlink(thumbnailPath);
       } catch (error) {
         console.error("Error deleting thumbnail file: ", error);
       }
@@ -200,7 +200,7 @@ async function segmentFile(assembledFilename: string, fileTitle: string, thumbna
       console.error("Error deleting video file: ", error);
     }
   } catch (error) {
-    console.log("Error in segmentaion", error);
+    console.log("Error in segmentation", error);
   }
 }
 
